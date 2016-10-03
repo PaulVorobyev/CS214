@@ -1,0 +1,73 @@
+Testcases
+=========
+
+1)
+
+Input: ./pointersorter
+
+Output:
+Incorrect number of arguments supplied.
+Usage: "./pointersorter [alphabetic-tokens]"
+
+2)
+
+Input: ./pointersorter foo bar baz
+
+Output:
+Incorrect number of arguments supplied.
+Usage: "./pointersorter [alphabetic-tokens]"
+
+3)
+
+Input: ./pointersorter "foo bar baz"
+
+Output: 
+bar
+baz
+foo
+
+4)
+
+Input: ./pointersorter ""
+Output: "" (nothing, no new line)
+
+5)
+
+Input: ./pointersorter "237864 "
+Output: "" (nothing, no new line)
+
+6)
+
+Input: ./pointersorter foo
+Output: foo
+
+7)
+
+Input: ./pointersorter "foo
+bar
+baz" (each on new line)
+
+Output:
+bar
+baz
+foo
+
+8)
+
+Input: ./pointersorter "foo foo bar baz"
+
+Output:
+bar
+baz
+foo
+foo
+
+9)
+
+Input: ./pointersorter "36453476foo     (){}}{}}}}}@@@@@@bar
+baz"
+
+Output:
+bar
+baz
+foo
