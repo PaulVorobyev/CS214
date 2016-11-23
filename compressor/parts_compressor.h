@@ -10,6 +10,9 @@ typedef struct metadata {
 } metadata;
 
 metadata* formMetadata(char*,char*,int,int,int);
+void fail(const char*);
+int exists(const char*);
+void errorCheck(int, char **);
 void* compressPart(void*);
 void filedata_parser(char*,void**);
 

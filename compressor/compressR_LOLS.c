@@ -56,3 +56,10 @@ void compressR_LOLS(char* fname, int parts) {
     wait(NULL);
     free(parsed_filedata);
 }
+
+int main(int argc, char ** argv) {
+    errorCheck(argc, argv);
+
+    compressR_LOLS(argv[1], atoi(argv[2]));
+    return 0;
+}

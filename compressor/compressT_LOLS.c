@@ -47,6 +47,8 @@ void compressT_LOLS(char* fname, int parts) {
 }
 
 int main(int argc, char** argv) {
-    compressT_LOLS("test.txt", 3);
+    errorCheck(argc, argv);
+
+    compressT_LOLS(argv[1], atoi(argv[2]));
     return 0;
 }

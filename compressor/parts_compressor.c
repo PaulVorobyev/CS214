@@ -16,6 +16,40 @@ metadata* formMetadata(char* filename, char* ext, int part, int sbyte, int block
     return md;
 }
 
+// prints error message and quits with exit code 1
+void fail(const char *error) {
+    printf("\n%s\n", error);
+    printf("Usage: ./out <filename> <# of files>");
+    exit(1);
+};
+
+// checks if given filename exists
+int exists(const char *fname) {
+    FILE *file = fopen(fname, "r");
+    if (file) {
+        fclose(file);
+        return 1;
+    }
+
+    return 0;
+}
+
+// checks common errors before executing program
+void errorCheck(int argc, char ** argv) {
+    if (argc != 3) { // check if proper usage
+        fail("Incorrect number of arguments supplied.");
+    } 
+    
+    const char *fname = argv[1];
+    int numFiles = atoi(argv[2]);
+
+    if (!exists(fname)) { // check if filename exists
+        fail("File does not exist.");
+    } else if (numFiles == 0) {
+        fail("Invalid number of files.");
+    }
+}
+
 // handles the compression and writing to a part file
 void* compressPart(void* args) { // filename, index, sbyte, blocksize
     metadata* md = (metadata*)args;
