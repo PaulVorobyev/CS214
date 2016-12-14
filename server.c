@@ -121,8 +121,8 @@ void handle_connection(server* srv, int connfd) {
         write(connfd, (void*)&fildes, sizeof(fildes));
     } else if (mode == 1) { // read
         if (!check_fd_validity(srv, fd)) {
-            char* error = "Invalid file descriptor.";
-            write(connfd, error, strlen(error));
+            int error = -1;
+            write(connfd, error, sizeof(error));
         } else {
             char buf[size+1];
             buf[size] = '\0';
@@ -131,8 +131,8 @@ void handle_connection(server* srv, int connfd) {
         }
     } else if (mode == 2) { // write
         if (!check_fd_validity(srv, fd)) {
-            char* error = "Invalid file descriptor.";
-            write(connfd, error, strlen(error));
+            int error = -1;
+            write(connfd, error, sizeof(error));
         } else {
             char buf[size+1];
             buf[size] = '\0';
@@ -141,14 +141,14 @@ void handle_connection(server* srv, int connfd) {
         }
     } else if (mode == 3) { // close
         if (!check_fd_validity(srv, fd)) {
-            char* error = "Invalid file descriptor.";
-            write(connfd, error, strlen(error));
+            int error = -1;
+            write(connfd, error, sizeof(error));
         } else {
             close(fd);
         }
     } else {
-        char* error = "Invalid mode.";
-        write(connfd, error, strlen(error));
+        int error = -2;
+        write(connfd, error, sizeof(error));
     }
     close(connfd);
 }

@@ -4,15 +4,13 @@
 
 typedef struct sockaddr_in sockaddr_in;
 typedef struct sockaddr sockaddr;
+typedef struct hostent hostent;
+
 typedef struct client {
-    char* hostname;
-    int port;
-    sockaddr_in s_addr;
     int sockfd;
-    int connfd;
+    int portno;
+    sockaddr_in* serv_addr;
+    hostent* server;
 } client;
 
-client* create_client(char*,int);
-void start_client(client*);
-int open_file(client*,char*);
 #endif
