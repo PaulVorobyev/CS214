@@ -56,6 +56,8 @@ void write_data(client* cli, char* data, int nbyte) {
 }
 
 int netopen(char* pathname, int mode) {
+    if (CLIENT != NULL) free(CLIENT);
+    CLIENT = create_client("127.0.0.1", 2000);
     int pnsize = strlen(pathname);
     uchar header[8];
     header[4] = mode;
@@ -75,13 +77,33 @@ int netopen(char* pathname, int mode) {
         printf("%d\n", resp[sizeof(size)+i]);
         fd = (fd << 8*i) | resp[sizeof(size)+i];
     }
-    printf("FD %d\n", fd);
     return fd;
 }
 
+ssize_t netwrite(int fildes, const void* buf, size_t nbyte) {
+    if (CLIENT != NULL) free(CLIENT);
+    CLIENT = create_client("127.0.0.1", 2000);
+    printf("FILDES %d\n", fildes);
+    uchar header[8];
+    memcpy(header, &fildes, sizeof(fildes));
+    header[4] = 2 << 4;
+    header[5] = 1;
+    header[6] = (char)((nbyte >> 8) & 0xff);
+    header[7] = (char)(nbyte & 0xff);
+    char payload[nbyte+8];
+    memcpy(payload, header, 8);
+    memcpy(payload+8, buf, nbyte);
+    write_data(CLIENT, payload, nbyte+8);
+    char* resp = get_response(CLIENT);
+    int respv = 0;
+    memcpy(&respv, resp, sizeof(respv));
+    printf("RETURNING\n");
+    return respv;
+}
 
 int main(int argc, char** argv) {
     printf("%d %d %d\n", O_RDONLY, O_WRONLY, O_RDWR);
-    CLIENT = create_client("127.0.0.1", 2000);
-    netopen("hello.txt", O_WRONLY);
+    int fd = netopen("hello.txt", O_WRONLY);
+    printf("FD %d\n", fd);
+    int status = netwrite(fd, "Hello there", 11);
 }
