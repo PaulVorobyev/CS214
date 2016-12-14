@@ -25,7 +25,7 @@ server* init_server(char* hostname, int port, int max_connections) {
     }
 
     srv->s_addr->sin_family = AF_INET;
-    srv->s_addr->sin_addr.s_addr = htonl(INADDR_ANY); // replace with hostname
+    srv->s_addr->sin_addr.s_addr = INADDR_ANY; // replace with hostname
     srv->s_addr->sin_port = htons(port);
     int reuse = 1;
     if (setsockopt(srv->sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) == -1) {
@@ -122,7 +122,6 @@ void handle_connection(server* srv, int connfd) {
         printf("fmode %d %d\n", fmode, O_WRONLY);
         if (fmode == O_WRONLY) {
             file = fopen(fp, "w");
-            printf("OPEN/CREATE\n");
         } else if (fmode == O_RDONLY) {
             file = fopen(fp, "r");
         } else if (fmode == O_RDWR) {
@@ -134,6 +133,7 @@ void handle_connection(server* srv, int connfd) {
             fildes = fileno(file);
             printf("FILDES %d\n", fildes);
             append_to_fdlist(srv, fildes);
+            int i;
             respond(connfd, (char*)&fildes, (ushort)sizeof(fildes));
         } else {
             char err = -1;
@@ -150,13 +150,11 @@ void handle_connection(server* srv, int connfd) {
             buf[size] = '\0';
             read(fd, buf+1, strlen(buf));
             respond(connfd, buf, size+2);
-            // write(connfd, buf, strlen(buf)); // writing back data read
         }
     } else if (mode == 2) { // write
         if (!check_fd_validity(srv, fd)) {
             char error = -1;
             respond(connfd, (char*)&error, (ushort)sizeof(error));
-            // write(connfd, &error, sizeof(error));
         } else {
             char buf[size+1];
             buf[size] = '\0';
@@ -167,20 +165,17 @@ void handle_connection(server* srv, int connfd) {
         if (!check_fd_validity(srv, fd)) {
             char error = -1;
             respond(connfd, (char*)&error, (ushort)sizeof(sizeof(error)));
-            // write(connfd, &error, sizeof(error));
         } else {
             close(fd);
         }
     } else {
         char error = -2;
         respond(connfd, (char*)&error, (unsigned short)sizeof(error));
-        // write(connfd, &error, sizeof(error));
     }
     close(connfd);
 }
 
 void respond(int connfd, char* payload, unsigned short payload_size) {
-    printf("SIZE %d\n", payload_size);
     int packet_size = payload_size+2;
     char packet[packet_size];
     memcpy(packet, &payload_size, sizeof(ushort)); // copying size to first two bytes
@@ -199,7 +194,7 @@ void start_server(server* srv) {
 }
 
 int main(int argc, char** argv) {
-    server* srv = init_server("localhost", 2000, 200);
+    server* srv = init_server("127.0.0.1", 2000, 200);
     start_server(srv);
     return 0;
 }
