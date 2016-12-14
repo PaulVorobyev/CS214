@@ -106,7 +106,6 @@ void handle_connection(server* srv, int connfd) {
     for (i = 3; i >= 0; i--) {
         fd = (fd << 8*i) | header[i];
     }
-    printf("FDDD %d\n", fd);
     char fmode = header[4] & 0x0f; char mode = (header[4] >> 4) & 0x0f; int connections = header[5];
     unsigned size = (header[6] << 8) + header[7];
     if (size > 4096) {
@@ -153,10 +152,10 @@ void handle_connection(server* srv, int connfd) {
         if (!check_fd_validity(srv, fd)) {
             error = -1;
         } else {
-            char buf[size+1];
-            buf[size] = '\0';
-            read(connfd, buf, strlen(buf)); // reads the data to write to file
-            size_t s = write(fd, buf, strlen(buf)); // writes it to file
+            char buf[size];
+            printf("WRSIZE %d\n", size);
+            read(connfd, buf, size); // reads the data to write to file
+            size_t s = write(fd, buf, size); // writes it to file
             printf("WSIZE %li into FD %d\n", s, fd);
             printf("ERR %d\n", error);
             respond(connfd, (char*)&error, (ushort)sizeof(error));

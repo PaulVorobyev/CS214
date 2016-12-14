@@ -90,10 +90,15 @@ ssize_t netwrite(int fildes, const void* buf, size_t nbyte) {
     header[5] = 1;
     header[6] = (char)((nbyte >> 8) & 0xff);
     header[7] = (char)(nbyte & 0xff);
+    printf("%02x %02x\n", header[6], header[7]);
     char payload[nbyte+8];
     memcpy(payload, header, 8);
     memcpy(payload+8, buf, nbyte);
     write_data(CLIENT, payload, nbyte+8);
+    int i;
+    for (i = 0; i < nbyte; i++) {
+        putchar(payload[8+i]);
+    }
     char* resp = get_response(CLIENT);
     int respv = 0;
     memcpy(&respv, resp, sizeof(respv));

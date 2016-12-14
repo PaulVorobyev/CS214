@@ -1,5 +1,5 @@
 .DS_Store
 *.out
-.dSYM
+*.dSYM
 client
 server
