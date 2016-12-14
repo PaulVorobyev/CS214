@@ -8,6 +8,9 @@
 #include <string.h>
 #include "server.h"
 
+typedef unsigned short ushort;
+typedef unsigned char uchar;
+
 server* init_server(char* hostname, int port, int max_connections) {
     // creating server object
     server* srv = (server*)malloc(sizeof(server));
@@ -40,8 +43,7 @@ server* init_server(char* hostname, int port, int max_connections) {
         fprintf(stderr, "Failed to to listen to socket.\n");
         return NULL;
     }
-    srv->fdsize = 100;
-    srv->fds = (int*)malloc(sizeof(int)*srv->fdsize);
+    srv->fdsize = 100; srv->fds = (int*)malloc(sizeof(int)*srv->fdsize);
     memset(srv->fds, -100, srv->fdsize);
     return srv;
 }
@@ -81,15 +83,18 @@ void remove_from_fdlist(server* srv, int fd) {
     }
 }
 
+void respond(int,char*,ushort);
+
 void handle_connection(server* srv, int connfd) {
     // 4 bytes: file descriptor
-    // 1/2 byte: empty
+    // 1/2 byte: operation mode
     // 1/2 byte: file mode
     // 1 byte: max allowed connections
-    // 2 bytes: size of data 
+    // 2 bytes: size of data or payload
     int header_size = 8;
-    char header[header_size];
+    uchar header[header_size];
     ssize_t rd = read(connfd, header, header_size);
+    printf("Connection received: size %li\n", rd);
     if (rd != 8) {
         // return ERROR status
         char* error = "Invalid header length. Must be of length 8.";
@@ -102,7 +107,7 @@ void handle_connection(server* srv, int connfd) {
     for (i = 0; i < 4; i++) {
         fd = (fd << 8) | header[i];
     }
-    char mode = header[4] & 0x0f; int connections = header[5];
+    char fmode = header[4] & 0x0f; char mode = (header[4] >> 4) & 0x0f; int connections = header[5];
     unsigned size = (header[6] << 8) + header[7];
     if (size > 4096) {
         // error, too large packet size
@@ -111,28 +116,47 @@ void handle_connection(server* srv, int connfd) {
         char fp[size+1];
         read(connfd, fp, size); // get filename
         fp[size] = '\0';
+        printf("FILEPATH %s\n", fp);
         FILE* file = NULL;
-        if (mode == O_WRONLY) file = fopen(fp, "w");
-        else if (mode == O_RDONLY) file = fopen(fp, "r");
-        else if (mode == O_RDWR) file = fopen(fp, "a+");
+        // opening file with appropriate mode
+        printf("fmode %d %d\n", fmode, O_WRONLY);
+        if (fmode == O_WRONLY) {
+            file = fopen(fp, "w");
+            printf("OPEN/CREATE\n");
+        } else if (fmode == O_RDONLY) {
+            file = fopen(fp, "r");
+        } else if (fmode == O_RDWR) {
+            file = fopen(fp, "a+");
+        }
+
         int fildes = -1;
-        if (file != NULL) fildes = fileno(file);
-        append_to_fdlist(srv, fildes);
-        write(connfd, (void*)&fildes, sizeof(fildes));
+        if (file != NULL) {
+            fildes = fileno(file);
+            printf("FILDES %d\n", fildes);
+            append_to_fdlist(srv, fildes);
+            respond(connfd, (char*)&fildes, (ushort)sizeof(fildes));
+        } else {
+            char err = -1;
+            respond(connfd, (char*)&err, (ushort)sizeof(err));
+        }
     } else if (mode == 1) { // read
         if (!check_fd_validity(srv, fd)) {
-            int error = -1;
-            write(connfd, error, sizeof(error));
+            char error = -1;
+            respond(connfd, (char*)&error, (ushort)sizeof(error));
+            write(connfd, &error, sizeof(error));
         } else {
-            char buf[size+1];
+            char buf[size+2];
+            buf[0] = 0; // noerr
             buf[size] = '\0';
-            read(fd, buf, strlen(buf));
-            write(connfd, buf, strlen(buf));
+            read(fd, buf+1, strlen(buf));
+            respond(connfd, buf, size+2);
+            // write(connfd, buf, strlen(buf)); // writing back data read
         }
     } else if (mode == 2) { // write
         if (!check_fd_validity(srv, fd)) {
-            int error = -1;
-            write(connfd, error, sizeof(error));
+            char error = -1;
+            respond(connfd, (char*)&error, (ushort)sizeof(error));
+            // write(connfd, &error, sizeof(error));
         } else {
             char buf[size+1];
             buf[size] = '\0';
@@ -141,16 +165,27 @@ void handle_connection(server* srv, int connfd) {
         }
     } else if (mode == 3) { // close
         if (!check_fd_validity(srv, fd)) {
-            int error = -1;
-            write(connfd, error, sizeof(error));
+            char error = -1;
+            respond(connfd, (char*)&error, (ushort)sizeof(sizeof(error)));
+            // write(connfd, &error, sizeof(error));
         } else {
             close(fd);
         }
     } else {
-        int error = -2;
-        write(connfd, error, sizeof(error));
+        char error = -2;
+        respond(connfd, (char*)&error, (unsigned short)sizeof(error));
+        // write(connfd, &error, sizeof(error));
     }
     close(connfd);
+}
+
+void respond(int connfd, char* payload, unsigned short payload_size) {
+    printf("SIZE %d\n", payload_size);
+    int packet_size = payload_size+2;
+    char packet[packet_size];
+    memcpy(packet, &payload_size, sizeof(ushort)); // copying size to first two bytes
+    memcpy(packet+sizeof(ushort), payload, payload_size); // copying rest of data
+    write(connfd, packet, packet_size);
 }
 
 void start_server(server* srv) {

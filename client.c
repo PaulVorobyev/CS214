@@ -4,11 +4,13 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include "client.h"
 
 typedef struct sockaddr_in sockaddr_in;
 typedef struct sockaddr sockaddr;
 typedef struct hostent hostent;
+typedef unsigned char uchar;
 
 client* CLIENT = NULL;
 
@@ -27,13 +29,18 @@ client* create_client(char* host, int port) {
         return NULL;
     }
     cli->serv_addr->sin_family = AF_INET;
-    printf("B1\n");
-    fflush(stdout);
-    bcopy((char*)cli->server->h_addr, (char*)cli->serv_addr->sin_addr.s_addr, cli->server->h_length);
-    printf("B2\n");
-    fflush(stdout);
     cli->serv_addr->sin_port = htons(port);
     return cli;
+}
+
+char* get_response(client* cli) {
+    short size = 0;
+    read(cli->sockfd, &size, sizeof(short)); // getting size of payload
+    printf("PAYLOAD SIZE %d\n", size);
+    char* payload = (char*)malloc(size+2); // allocating space for payload
+    memcpy(payload, &size, 2); // copying payload size
+    read(cli->sockfd, payload+2, size); // reading in payload
+    return payload;
 }
 
 void write_data(client* cli, char* data, int nbyte) {
@@ -44,9 +51,32 @@ void write_data(client* cli, char* data, int nbyte) {
     write(cli->sockfd, data, nbyte);
 }
 
+int netopen(char* pathname, int mode) {
+    int pnsize = strlen(pathname);
+    uchar header[8];
+    header[4] = mode;
+    header[5] = 1;
+    header[6] = (char)((pnsize >> 8) & 0xff);
+    header[7] = (char)(pnsize & 0xff);
+    char* payload = (char*)malloc(pnsize+8);
+    memcpy(payload, header, 8);
+    memcpy(payload+8, pathname, pnsize);
+    write_data(CLIENT, payload, pnsize+8);
+    char* resp = get_response(CLIENT);
+    ushort size = 0;
+    memcpy(&size, resp, sizeof(size));
+    int fd = 0;
+    int i;
+    for (i = 0; i < size; i++) {
+        fd = (fd << 8) | resp[sizeof(size)+i];
+    }
+    printf("FD %d\n", fd);
+    return fd;
+}
+
 
 int main(int argc, char** argv) {
+    printf("%d %d %d\n", O_RDONLY, O_WRONLY, O_RDWR);
     CLIENT = create_client("localhost", 2000);
-    return 0;
-    write_data(CLIENT, "01234567", 8);
+    netopen("hello.txt", O_WRONLY);
 }
