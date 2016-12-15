@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <string.h>
 #include "server.h"
 
@@ -103,7 +104,7 @@ void handle_connection(server* srv, int connfd) {
         return;
     }
     int i;
-    unsigned fd = 0;
+    int fd = 0;
     for (i = 0; i < 4; i++) {
         fd = (fd << 8) | header[i];
     }
@@ -112,6 +113,7 @@ void handle_connection(server* srv, int connfd) {
     if (size > 4096) {
         // error, too large packet size
     }
+
     if (mode == 0) { // open file
         char fp[size+1];
         read(connfd, fp, size); // get filename
@@ -142,14 +144,22 @@ void handle_connection(server* srv, int connfd) {
     } else if (mode == 1) { // read
         if (!check_fd_validity(srv, fd)) {
             char error = -1;
+            printf("ERRORREAD %d\n", fd);
             respond(connfd, (char*)&error, (ushort)sizeof(error));
             write(connfd, &error, sizeof(error));
         } else {
-            char buf[size+2];
-            buf[0] = 0; // noerr
-            buf[size] = '\0';
-            read(fd, buf+1, strlen(buf));
-            respond(connfd, buf, size+2);
+            char * buf = (char *)calloc(size+1, 1); // zeroing buffer
+            buf[size] = '\0'; // nullterminating
+            lseek(fd, 0, SEEK_SET); // seeking to start
+            int s = read(fd, buf, size);
+            printf("Actual size read %d\n", s);
+            printf("RETURNING: %s\n", buf);
+            char resp[size+3];
+            resp[0] = errno;
+            resp[1] = (char)((s >> 8) & 0xff);
+            resp[2] = (char)(s & 0xff);
+            memcpy(resp+3, buf, size);
+            respond(connfd, resp, size+3);
             // write(connfd, buf, strlen(buf)); // writing back data read
         }
     } else if (mode == 2) { // write
@@ -180,7 +190,7 @@ void handle_connection(server* srv, int connfd) {
 }
 
 void respond(int connfd, char* payload, unsigned short payload_size) {
-    printf("SIZE %d\n", payload_size);
+    printf("RESPONSE SIZE %d\n", payload_size);
     int packet_size = payload_size+2;
     char packet[packet_size];
     memcpy(packet, &payload_size, sizeof(ushort)); // copying size to first two bytes

@@ -16,7 +16,7 @@ client* CLIENT = NULL;
 
 client* create_client(char* host, int port) {
     client* cli = (client*)malloc(sizeof(client));
-    cli->serv_addr = (sockaddr_in*)malloc(sizeof(sockaddr_in));
+    cli->serv_addr = (sockaddr_in*)calloc(1, sizeof(sockaddr_in));
     cli->portno = port;
     cli->sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (cli->sockfd < 0) {
@@ -36,7 +36,6 @@ client* create_client(char* host, int port) {
 char* get_response(client* cli) {
     short size = 0;
     read(cli->sockfd, &size, sizeof(short)); // getting size of payload
-    printf("PAYLOAD SIZE %d\n", size);
     char* payload = (char*)malloc(size+2); // allocating space for payload
     memcpy(payload, &size, 2); // copying payload size
     read(cli->sockfd, payload+2, size); // reading in payload
@@ -67,16 +66,72 @@ int netopen(char* pathname, int mode) {
     memcpy(&size, resp, sizeof(size));
     int fd = 0;
     int i;
-    for (i = 0; i < size; i++) {
+    for (i = 3; i >= 0; i--) {
         fd = (fd << 8) | resp[sizeof(size)+i];
     }
-    printf("FD %d\n", fd);
     return fd;
+}
+
+// return header
+// 2 byte - body size (including error and size bytes)
+// 1 byte - error code
+// 2 bytes - actual size read
+
+ssize_t part_read(int fd, char* header, char* buf, ushort size, int offset) {
+    if (CLIENT != NULL) free(CLIENT);
+    CLIENT = create_client("127.0.0.1", 2000);
+    write_data(CLIENT, (char*)header, 8);
+    char* resp = get_response(CLIENT);
+    resp += 2;
+    if (resp[0] != 0) {
+        fprintf(stderr, "Error encountered: code %d\n", resp[0]);
+        return -1;
+    }
+    int rsize = ((unsigned int)resp[1] << 8) + resp[2];
+    memcpy(buf+offset, resp+3, size);
+    return rsize;
+}
+
+ssize_t netread(int filedes, void *buf, size_t nbyte) {
+    uchar header[8];
+    header[0] = (char)(filedes >> 24);
+    header[1] = (char)(filedes >> 16);
+    header[2] = (char)(filedes >> 8);
+    header[3] = (char)filedes;
+    header[4] = 1 << 4; 
+    header[5] = 1;
+    int offset = 0;
+    int realsize = 0;
+    while (nbyte > 0) { // breaks nbyte into multiple requests if the request size is above 4096
+        // refreshing client
+        if (CLIENT != NULL) free(CLIENT);
+        CLIENT = create_client("127.0.0.1", 2000);
+        int rdsize = (nbyte > 4096) ? 4096 : nbyte; // getting partial buffer size
+        nbyte -= rdsize;
+        header[6] = (char)((rdsize >> 8) & 0xff);
+        header[7] = (char)(rdsize & 0xff);
+        char* pthrdhdcpy = (char*)calloc(8, sizeof(char));
+        memcpy(pthrdhdcpy, header, 8);
+        int partsize = part_read(filedes, pthrdhdcpy, (char*)buf, rdsize, offset);
+        if (partsize == -1) return -1;
+        realsize += partsize;
+        offset += rdsize;
+    }    
+    int i;
+    char* b = (char*)buf;
+    for (i = 0; i < realsize; i++) {
+        putchar(b[i]);
+    }
+    return 0;
 }
 
 
 int main(int argc, char** argv) {
-    printf("%d %d %d\n", O_RDONLY, O_WRONLY, O_RDWR);
     CLIENT = create_client("localhost", 2000);
-    netopen("hello.txt", O_WRONLY);
+    int foo2 = netopen("errant1.txt", O_RDWR);
+    free(CLIENT);
+    CLIENT = create_client("localhost", 2000);
+    
+    void* buff = malloc(10000);
+    netread(foo2, buff, 10000);
 }
