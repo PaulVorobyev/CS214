@@ -144,7 +144,6 @@ void handle_connection(server* srv, int connfd) {
     } else if (mode == 1) { // read
         if (!check_fd_validity(srv, fd)) {
             char error = -1;
-            printf("ERRORREAD %d\n", fd);
             respond(connfd, (char*)&error, (ushort)sizeof(error));
             write(connfd, &error, sizeof(error));
         } else {

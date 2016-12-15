@@ -20,12 +20,12 @@ client* create_client(char* host, int port) {
     cli->portno = port;
     cli->sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (cli->sockfd < 0) {
-        printf("NULL SOCKET\n");
+        printf("Unable to create socket\n");
         return NULL;
     }
     cli->server = gethostbyname(host);
     if (cli->server == NULL) {
-        printf("NULL HOST\n");
+        printf("No such host exists\n");
         return NULL;
     }
     cli->serv_addr->sin_family = AF_INET;
@@ -39,6 +39,10 @@ char* get_response(client* cli) {
     char* payload = (char*)malloc(size+2); // allocating space for payload
     memcpy(payload, &size, 2); // copying payload size
     read(cli->sockfd, payload+2, size); // reading in payload
+    int i;
+    for (i = 0; i < size+2; i++) {
+        printf("%02x\n", payload[i]);
+    }
     return payload;
 }
 
@@ -51,6 +55,8 @@ void write_data(client* cli, char* data, int nbyte) {
 }
 
 int netopen(char* pathname, int mode) {
+    if (CLIENT != NULL) free(CLIENT);
+    CLIENT = create_client("127.0.0.1", 2000);
     int pnsize = strlen(pathname);
     uchar header[8];
     header[4] = mode;
@@ -67,11 +73,11 @@ int netopen(char* pathname, int mode) {
     int fd = 0;
     int i;
     for (i = 3; i >= 0; i--) {
-        fd = (fd << 8) | resp[sizeof(size)+i];
+        printf("%d\n", resp[sizeof(size)+i]);
+        fd = (fd << 8*i) | resp[sizeof(size)+i];
     }
     return fd;
 }
-
 // return header
 // 2 byte - body size (including error and size bytes)
 // 1 byte - error code
@@ -134,4 +140,5 @@ int main(int argc, char** argv) {
     
     void* buff = malloc(10000);
     netread(foo2, buff, 10000);
+   int status = netwrite(fd, "Hello there", 11);
 }

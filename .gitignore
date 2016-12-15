@@ -1,7 +1,12 @@
 .DS_Store
 *.out
 *.dSYM
+<<<<<<< HEAD
 .txt
 server
 client
 .*
+=======
+client
+server
+>>>>>>> 0719f5c81998597eb674e09d5e808e6ad0a7db18
