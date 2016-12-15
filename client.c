@@ -40,9 +40,6 @@ char* get_response(client* cli) {
     memcpy(payload, &size, 2); // copying payload size
     read(cli->sockfd, payload+2, size); // reading in payload
     int i;
-    for (i = 0; i < size+2; i++) {
-        printf("%02x\n", payload[i]);
-    }
     return payload;
 }
 
@@ -73,15 +70,10 @@ int netopen(char* pathname, int mode) {
     int fd = 0;
     int i;
     for (i = 3; i >= 0; i--) {
-        printf("%d\n", resp[sizeof(size)+i]);
         fd = (fd << 8*i) | resp[sizeof(size)+i];
     }
     return fd;
 }
-// return header
-// 2 byte - body size (including error and size bytes)
-// 1 byte - error code
-// 2 bytes - actual size read
 
 ssize_t part_read(int fd, char* header, char* buf, ushort size, int offset) {
     if (CLIENT != NULL) free(CLIENT);
@@ -110,8 +102,13 @@ ssize_t netread(int filedes, void *buf, size_t nbyte) {
     int realsize = 0;
     while (nbyte > 0) { // breaks nbyte into multiple requests if the request size is above 4096
         // refreshing client
-        if (CLIENT != NULL) free(CLIENT);
-        CLIENT = create_client("127.0.0.1", 2000);
+        if (CLIENT != NULL) {
+            hostent* server = CLIENT->server;
+            free(CLIENT);
+            CLIENT = create_client("127.0.0.1", 2000);
+            CLIENT->server = server;
+        }
+
         int rdsize = (nbyte > 4096) ? 4096 : nbyte; // getting partial buffer size
         nbyte -= rdsize;
         header[6] = (char)((rdsize >> 8) & 0xff);
@@ -123,12 +120,12 @@ ssize_t netread(int filedes, void *buf, size_t nbyte) {
         realsize += partsize;
         offset += rdsize;
     }    
-    int i;
     char* b = (char*)buf;
+    int i;
     for (i = 0; i < realsize; i++) {
         putchar(b[i]);
     }
-    return 0;
+    return realsize;
 }
 
 
@@ -136,4 +133,7 @@ int main(int argc, char** argv) {
     int foo2 = netopen("errant.txt", O_RDWR);
     void* buff = malloc(10000);
     netread(foo2, buff, 10000);
+    
+    int foo = netopen("sample.txt", O_RDWR);
+    netread(foo, buff, 100);
 }

@@ -151,8 +151,6 @@ void handle_connection(server* srv, int connfd) {
             buf[size] = '\0'; // nullterminating
             lseek(fd, 0, SEEK_SET); // seeking to start
             int s = read(fd, buf, size);
-            printf("Actual size read %d\n", s);
-            printf("RETURNING: %s\n", buf);
             char resp[size+3];
             resp[0] = errno;
             resp[1] = (char)((s >> 8) & 0xff);
