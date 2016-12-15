@@ -138,7 +138,7 @@ void handle_connection(server* srv, int connfd) {
             append_to_fdlist(srv, fildes);
             respond(connfd, (char*)&fildes, (ushort)sizeof(fildes));
         } else {
-            char err = -1;
+            char err = errno;
             respond(connfd, (char*)&err, (ushort)sizeof(err));
         }
     } else if (mode == 1) { // read

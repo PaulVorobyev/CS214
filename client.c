@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 #include "client.h"
 
 typedef struct sockaddr_in sockaddr_in;
@@ -81,8 +82,10 @@ ssize_t part_read(int fd, char* header, char* buf, ushort size, int offset) {
     write_data(CLIENT, (char*)header, 8);
     char* resp = get_response(CLIENT);
     resp += 2;
-    if (resp[0] != 0) {
-        fprintf(stderr, "Error encountered: code %d\n", resp[0]);
+    int error = resp[0];
+    if (error != 0) {
+        fprintf(stderr, "Error encountered: code %d\n", error);
+        errno = error;
         return -1;
     }
     int rsize = ((unsigned int)resp[1] << 8) + resp[2];
@@ -119,12 +122,14 @@ ssize_t netread(int filedes, void *buf, size_t nbyte) {
         if (partsize == -1) return -1;
         realsize += partsize;
         offset += rdsize;
-    }    
+    }
+
     char* b = (char*)buf;
     int i;
     for (i = 0; i < realsize; i++) {
         putchar(b[i]);
     }
+
     return realsize;
 }
 
