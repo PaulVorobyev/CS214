@@ -78,6 +78,62 @@ int netopen(char* pathname, int mode) {
     }
     return fd;
 }
+
+// return header
+// 1 byte - error code
+// 2 bytes - written size
+void print(char* sv, int len) {
+    int i;
+    for (i = 0; i < len; i++) {
+        putchar(sv[i]);
+    }
+}
+
+ssize_t part_write(int fd, char* header, char* buf, ushort size, int offset) {
+    if (CLIENT != NULL) free(CLIENT);
+    CLIENT = create_client("127.0.0.1", 2000);
+    printf("WRSIZE %d\n", size);
+    char payload[size+8];
+    memcpy(payload, header, 8);
+    memcpy(payload+8, buf+offset, size);
+    print(payload+8, size);
+    printf("\n");
+    write_data(CLIENT, payload, size+8);
+    char* resp = get_response(CLIENT);
+    resp += 2;
+    if (resp[0] != 0) {
+        fprintf(stderr, "Error encountered when writing to file: code %d\n", resp[0]);
+        return -1;
+    }
+    ssize_t wrsize = resp[1];
+    wrsize = (wrsize << 8) | resp[2];
+    return wrsize;
+}
+
+ssize_t netwrite(int fd, void *buf, size_t nbyte) {
+    uchar header[8];
+    header[0] = fd >> 24;
+    header[1] = fd >> 16;
+    header[2] = fd >> 8;
+    header[3] = fd;
+    header[4] = 2 << 4;
+    header[5] = 1;
+    int offset = 0;
+    int part = 0;
+    while (nbyte > 0) {
+        int wrsize = (nbyte > 4096) ? 4096 : nbyte;
+        nbyte -= wrsize;
+        header[6] = (char)((wrsize >> 8) & 0xff);
+        header[7] = (char)(wrsize & 0xff);
+        header[4] += part;
+        char* pthrdhdcpy = (char*)calloc(8, sizeof(char));
+        memcpy(pthrdhdcpy, header, 8);
+        int partsize = part_write(fd, pthrdhdcpy, (char*)buf, wrsize, offset);
+        offset += wrsize;
+    }
+    return 0;
+}
+
 // return header
 // 2 byte - body size (including error and size bytes)
 // 1 byte - error code
@@ -110,8 +166,6 @@ ssize_t netread(int filedes, void *buf, size_t nbyte) {
     int realsize = 0;
     while (nbyte > 0) { // breaks nbyte into multiple requests if the request size is above 4096
         // refreshing client
-        if (CLIENT != NULL) free(CLIENT);
-        CLIENT = create_client("127.0.0.1", 2000);
         int rdsize = (nbyte > 4096) ? 4096 : nbyte; // getting partial buffer size
         nbyte -= rdsize;
         header[6] = (char)((rdsize >> 8) & 0xff);
@@ -131,9 +185,18 @@ ssize_t netread(int filedes, void *buf, size_t nbyte) {
     return 0;
 }
 
+void netclose(int fd) {
+    if (CLIENT != NULL) free(CLIENT);
+    CLIENT = create_client("127.0.0.1", 2000);
+    uchar header[8];
+    memcpy(header, &fd, sizeof(fd));
+    header[4] = 3 << 4;
+    write_data(CLIENT, (char*)header, 8);
+}
 
 int main(int argc, char** argv) {
-    int foo2 = netopen("errant.txt", O_RDWR);
-    void* buff = malloc(10000);
-    netread(foo2, buff, 10000);
+    int fd = netopen("hello.txt", O_WRONLY);
+    char* data = "i want food goddammit";
+    netwrite(fd, data, strlen(data));
+    netclose(fd);
 }

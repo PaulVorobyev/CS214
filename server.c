@@ -162,15 +162,30 @@ void handle_connection(server* srv, int connfd) {
             // write(connfd, buf, strlen(buf)); // writing back data read
         }
     } else if (mode == 2) { // write
+        char error = 0;
+        printf("WRITE FD %d\n", fd);
         if (!check_fd_validity(srv, fd)) {
-            char error = -1;
-            respond(connfd, (char*)&error, (ushort)sizeof(error));
+            char resp[3];
+            resp[0] = -1;
+            resp[1] = 0;
+            resp[2] = 0;
+            respond(connfd, (char*)&error, 3);
             // write(connfd, &error, sizeof(error));
         } else {
             char buf[size+1];
+            printf("WRSIZE %d\n", size);
             buf[size] = '\0';
-            read(connfd, buf, strlen(buf)); // reads the data to write to file
-            write(fd, buf, strlen(buf)); // writes it to file
+            errno = 0;
+            read(connfd, buf, size); // reads the data to write to file
+            printf("%s\n", buf);
+            error = errno;
+            printf("ERRNO %d\n", error);
+            int wrsize = write(fd, buf, size); // writes it to file
+            char resp[3];
+            resp[0] = error;
+            resp[1] = (char)((wrsize >> 8) & 0xff);
+            resp[2] = (char)(wrsize & 0xff);
+            respond(connfd, (char*)&error, 3);
         }
     } else if (mode == 3) { // close
         if (!check_fd_validity(srv, fd)) {
