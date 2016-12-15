@@ -133,12 +133,7 @@ ssize_t netread(int filedes, void *buf, size_t nbyte) {
 
 
 int main(int argc, char** argv) {
-    CLIENT = create_client("localhost", 2000);
-    int foo2 = netopen("errant1.txt", O_RDWR);
-    free(CLIENT);
-    CLIENT = create_client("localhost", 2000);
-    
+    int foo2 = netopen("errant.txt", O_RDWR);
     void* buff = malloc(10000);
     netread(foo2, buff, 10000);
-   int status = netwrite(fd, "Hello there", 11);
 }
